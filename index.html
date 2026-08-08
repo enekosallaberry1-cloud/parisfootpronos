@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendrier automatique — Foot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a100c; --card: #131d16; --card-line: #223026;
+    --pitch: #2f9e58; --pitch-dim: #1d6b3c; --gold: #f2b93d;
+    --ink: #eeece2; --ink-dim: #93a396; --red: #d1554a; --radius: 14px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background: radial-gradient(ellipse 120% 60% at 50% -10%, #142317 0%, var(--bg) 55%), var(--bg);
+    color: var(--ink); font-family:'Inter',sans-serif; line-height:1.5; padding-bottom:60px;
+  }
+  header{ text-align:center; padding:44px 20px 28px; border-bottom:1px solid var(--card-line); }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:3px; color:var(--pitch); text-transform:uppercase; }
+  h1{ font-family:'Bebas Neue',sans-serif; font-size:clamp(34px,6vw,58px); margin:12px 0 6px; }
+  h1 span{ color:var(--gold); }
+  .sub{ color:var(--ink-dim); font-size:14px; }
+  #lastUpdate{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-dim); margin-top:14px; }
+
+  .filters{ max-width:1100px; margin:26px auto 0; padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .filters button{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; background:#0d1510; border:1px solid var(--card-line);
+    color:var(--ink-dim); padding:8px 14px; border-radius:100px; cursor:pointer;
+  }
+  .filters button.active{ border-color:var(--pitch); color:var(--pitch); background:rgba(47,158,88,0.08); }
+
+  main{ max-width:1100px; margin:0 auto; padding:30px 20px; }
+  .day-group{ margin-bottom:30px; }
+  .day-title{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--gold); text-transform:uppercase;
+    letter-spacing:1px; border-bottom:1px solid var(--card-line); padding-bottom:8px; margin-bottom:14px;
+  }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+  .card{
+    background:linear-gradient(180deg, var(--card) 0%, #101913 100%);
+    border:1px solid var(--card-line); border-radius:var(--radius); padding:16px;
+  }
+  .card .comp{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px; }
+  .card .time{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); float:right; }
+  .analysis-box{
+    margin-top:12px; padding:12px 14px; border-radius:10px;
+    background: rgba(242,185,61,0.06); border:1px solid var(--gold-dim);
+    font-size:12px; color:#cdd6cc;
+  }
+  .analysis-box .pick{ color:var(--gold); font-weight:600; font-size:13px; margin-bottom:6px; }
+  .analysis-box .conf{ font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; color:var(--ink-dim); margin-bottom:8px; display:inline-block; }
+  .analysis-box .stat-line{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-dim); margin-top:3px; }
+  .analysis-box .stat-line b{ color:var(--ink); }
+  .no-analysis{ margin-top:12px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-dim); font-style:italic; }
+  .analysis-box.ai{ background: rgba(47,158,88,0.08); border-color: var(--pitch-dim); }
+  .analysis-box.ai .conf{ color: var(--pitch); }
+  .teams{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
+  .team{ display:flex; align-items:center; gap:8px; flex:1; }
+  .team img{ width:20px; height:20px; object-fit:contain; }
+  .team span{ font-size:13.5px; }
+  .score{ font-family:'IBM Plex Mono',monospace; font-size:16px; color:var(--gold); font-weight:600; min-width:50px; text-align:center; }
+  .status-pill{
+    display:inline-block; margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:9.5px;
+    padding:3px 8px; border-radius:100px; letter-spacing:0.5px;
+  }
+  .status-pill.scheduled{ background:#2a3a2d; color:var(--ink-dim); }
+  .status-pill.live{ background:rgba(209,85,74,0.15); color:var(--red); }
+  .status-pill.finished{ background:rgba(47,158,88,0.15); color:var(--pitch); }
+
+  .empty{ text-align:center; color:var(--ink-dim); padding:60px 0; font-family:'IBM Plex Mono',monospace; font-size:13px; }
+
+  .search-wrap{ max-width:1100px; margin:18px auto 0; padding:0 20px; }
+  .search-wrap input{
+    width:100%; background:#0d1510; border:1px solid var(--card-line); border-radius:100px;
+    color:var(--ink); font-family:'Inter',sans-serif; font-size:14px; padding:11px 18px;
+  }
+  .search-wrap input:focus{ outline:1px solid var(--pitch); border-color:var(--pitch); }
+
+  .poisson-bar{ display:flex; height:8px; border-radius:5px; overflow:hidden; background:#1a2620; margin:6px 0; }
+  .poisson-bar .seg-home{ background:var(--pitch); }
+  .poisson-bar .seg-draw{ background:#3d4a3f; }
+  .poisson-bar .seg-away{ background:var(--gold); }
+  .poisson-labels{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); }
+  .poisson-extra{ display:flex; gap:14px; margin-top:4px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); }
+
+  .ics-btn{
+    margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    background:transparent; border:1px dashed var(--card-line); color:var(--ink-dim);
+    padding:5px 10px; border-radius:100px; cursor:pointer;
+  }
+  .ics-btn:hover{ border-color:var(--gold); color:var(--gold); }
+
+  .reliability-section{ max-width:1100px; margin:0 auto; padding:0 20px 30px; }
+  .rel-stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:14px 0; }
+  .rel-stat{ background:var(--card); border:1px solid var(--card-line); border-radius:10px; padding:14px; text-align:center; }
+  .rel-stat .n{ font-family:'IBM Plex Mono',monospace; font-size:26px; color:var(--gold); font-weight:600; }
+  .rel-stat .l{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); text-transform:uppercase; margin-top:4px; }
+  .rel-toggle{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; background:transparent; border:1px solid var(--card-line);
+    color:var(--ink-dim); padding:6px 12px; border-radius:100px; cursor:pointer; margin-bottom:10px;
+  }
+  .rel-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .rel-table th{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase; color:var(--ink-dim); text-align:left; padding:6px 8px; border-bottom:1px solid var(--card-line); }
+  .rel-table td{ padding:7px 8px; border-bottom:1px solid #1a2620; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Coupe du Monde · 5 grands championnats · Ligue des Champions</span>
+  <h1>Calendrier <span>Automatique</span></h1>
+  <p class="sub">Mis à jour tout seul toutes les 6 heures — aucune action de ta part.</p>
+  <p class="sub" style="font-size:11.5px; max-width:560px; margin:10px auto 0;">Les suggestions "Confiance / Pari conseillé" sont calculées automatiquement par une formule statistique (forme, buts, confrontations directes, avantage du terrain) — ce n'est pas une analyse IA et ça ne remplace pas un vrai travail d'analyse. Vérifie toujours la cote réelle avant de parier.</p>
+  <div id="lastUpdate">Chargement…</div>
+  <div id="aiUpdate" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--gold); margin-top:4px;"></div>
+</header>
+
+<div class="search-wrap">
+  <input type="text" id="teamSearch" placeholder="🔍 Rechercher une équipe (ex. France, Real Madrid...)">
+</div>
+
+<div class="filters" id="filters"></div>
+
+<main id="main">
+  <div class="empty">Chargement des matchs…</div>
+</main>
+
+<section class="reliability-section" id="reliabilitySection" style="display:none;">
+  <div class="day-title">Fiabilité du modèle (automatique, basée sur les résultats réels)</div>
+  <div class="rel-stats">
+    <div class="rel-stat"><div class="n" id="relTotal">0</div><div class="l">Pronostics jugés</div></div>
+    <div class="rel-stat"><div class="n" id="relAccuracy">—</div><div class="l">Taux de réussite</div></div>
+    <div class="rel-stat"><div class="n" id="relPending">0</div><div class="l">En attente</div></div>
+  </div>
+  <button class="rel-toggle" id="relToggle">Voir le détail des pronostics jugés</button>
+  <div id="relDetail" style="display:none; overflow-x:auto;"></div>
+</section>
+
+<script>
+let allMatches = [];
+let aiAnalyses = {};
+let activeFilter = 'ALL';
+let searchTerm = '';
+
+function matchKey(m){ return `${m.homeTeam}__${m.awayTeam}__${m.utcDate}`; }
+
+async function load(){
+  try{
+    const res = await fetch('./data/matches.json?_=' + Date.now());
+    if(!res.ok) throw new Error('fichier introuvable');
+    const data = await res.json();
+    allMatches = data.matches || [];
+    document.getElementById('lastUpdate').textContent =
+      'Dernière mise à jour : ' + new Date(data.generated_at).toLocaleString('fr-FR');
+
+    try{
+      const aiRes = await fetch('./data/ai_analysis.json?_=' + Date.now());
+      if(aiRes.ok){
+        const aiData = await aiRes.json();
+        aiAnalyses = aiData.analyses || {};
+        if(aiData.generated_at){
+          document.getElementById('aiUpdate').textContent =
+            'Analyse IA générée le : ' + new Date(aiData.generated_at).toLocaleString('fr-FR');
+        }
+      }
+    }catch(e){ /* pas grave si l'analyse IA n'existe pas encore */ }
+
+    try{
+      const relRes = await fetch('./data/prediction_log.json?_=' + Date.now());
+      if(relRes.ok){
+        const relData = await relRes.json();
+        renderReliability(relData);
+      }
+    }catch(e){ /* pas grave si le suivi de fiabilité n'existe pas encore */ }
+
+    try{
+      const extraRes = await fetch('./data/extra_competitions.json?_=' + Date.now());
+      if(extraRes.ok){
+        const extraData = await extraRes.json();
+        if(extraData.matches && extraData.matches.length){
+          allMatches = allMatches.concat(extraData.matches);
+          allMatches.sort((a, b) => (a.utcDate || '').localeCompare(b.utcDate || ''));
+        }
+      }
+    }catch(e){ /* pas grave si les competitions bonus n'existent pas encore */ }
+
+    buildFilters();
+    render();
+  }catch(e){
+    document.getElementById('main').innerHTML =
+      '<div class="empty">Pas encore de données — le premier passage du robot GitHub Actions n\'a peut-être pas encore eu lieu.<br>Tu peux le lancer manuellement depuis l\'onglet "Actions" de ton dépôt GitHub.</div>';
+  }
+}
+
+function renderReliability(log){
+  const entries = Object.values(log || {});
+  if(entries.length === 0) return;
+  const judged = entries.filter(e => e.status === 'correct' || e.status === 'incorrect');
+  const correct = judged.filter(e => e.status === 'correct');
+  const pending = entries.filter(e => e.status === 'pending');
+
+  document.getElementById('relTotal').textContent = judged.length;
+  document.getElementById('relAccuracy').textContent = judged.length ? Math.round(correct.length/judged.length*100) + '%' : '—';
+  document.getElementById('relPending').textContent = pending.length;
+  document.getElementById('reliabilitySection').style.display = 'block';
+
+  const rows = judged.slice().reverse().map(e => `<tr>
+    <td>${e.competition}</td>
+    <td>${e.homeTeam} - ${e.awayTeam}</td>
+    <td>${e.pick_label}</td>
+    <td>${e.confidence}</td>
+    <td>${e.final_score}</td>
+    <td style="color:${e.status==='correct' ? 'var(--pitch)' : 'var(--red)'}">${e.status==='correct' ? '✔ Correct' : '✘ Raté'}</td>
+  </tr>`).join('');
+
+  document.getElementById('relDetail').innerHTML = judged.length ? `<table class="rel-table">
+    <thead><tr><th>Compétition</th><th>Match</th><th>Pronostic</th><th>Confiance</th><th>Score final</th><th>Résultat</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>` : '<p style="color:var(--ink-dim); font-size:12px;">Aucun pronostic jugé pour l\'instant.</p>';
+
+  document.getElementById('relToggle').addEventListener('click', () => {
+    const el = document.getElementById('relDetail');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  });
+}
+
+function buildFilters(){
+  const comps = ['ALL', ...new Set(allMatches.map(m => m.competition))];
+  const wrap = document.getElementById('filters');
+  wrap.innerHTML = comps.map(c =>
+    `<button data-c="${c}" class="${c===activeFilter?'active':''}">${c==='ALL'?'Tout':c}</button>`
+  ).join('');
+  wrap.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => { activeFilter = b.dataset.c; buildFilters(); render(); });
+  });
+}
+
+function statusInfo(s){
+  if(s === 'FINISHED') return {label:'Terminé', cls:'finished'};
+  if(s === 'IN_PLAY' || s === 'PAUSED') return {label:'En direct', cls:'live'};
+  if(s === 'POSTPONED') return {label:'Reporté', cls:'scheduled'};
+  if(s === 'CANCELLED') return {label:'Annulé', cls:'scheduled'};
+  return {label:'À venir', cls:'scheduled'};
+}
+
+function formSummary(form){
+  if(!form) return null;
+  const results = (form.results || []).join('');
+  return `${form.points} pts sur 5 (éq.) · ${form.goals_for}-${form.goals_against} buts (éq.) · ${results}`;
+}
+
+function venueSummary(record, label){
+  if(!record || record.unbeaten_rate === null || record.unbeaten_rate === undefined) return null;
+  const pct = Math.round(record.unbeaten_rate * 100);
+  return `${pct}% invaincu ${label} (${record.matches_played} matchs) · série en cours : ${record.current_unbeaten_streak}`;
+}
+
+function renderPoisson(poisson, m){
+  if(!poisson) return '';
+  return `<div class="stat-line" style="display:block; margin-top:8px;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase; color:var(--ink-dim);">Modèle Poisson (probabilités réelles)</span>
+    <div class="poisson-bar">
+      <div class="seg-home" style="width:${poisson.home_win_pct}%"></div>
+      <div class="seg-draw" style="width:${poisson.draw_pct}%"></div>
+      <div class="seg-away" style="width:${poisson.away_win_pct}%"></div>
+    </div>
+    <div class="poisson-labels">
+      <span>${poisson.home_win_pct}% ${m.homeTeam.split(' ')[0]}</span>
+      <span>${poisson.draw_pct}% Nul</span>
+      <span>${poisson.away_win_pct}% ${m.awayTeam.split(' ')[0]}</span>
+    </div>
+    <div class="poisson-extra">
+      <span>+2,5 buts : ${poisson.over_2_5_pct}%</span>
+      <span>BTTS : ${poisson.btts_pct}%</span>
+    </div>
+  </div>`;
+}
+
+function renderStyleTags(a, m){
+  const homeStyle = (a.home_form || {}).style_tag;
+  const awayStyle = (a.away_form || {}).style_tag;
+  if(!homeStyle && !awayStyle) return '';
+  return `<div class="stat-line"><span>Style de jeu</span><b>${m.homeTeam.split(' ')[0]} : ${homeStyle || 'n/d'} · ${m.awayTeam.split(' ')[0]} : ${awayStyle || 'n/d'}</b></div>`;
+}
+
+function pad(n){ return String(n).padStart(2, '0'); }
+
+function toICSDate(d){
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+}
+
+function downloadICS(m){
+  const start = new Date(m.utcDate);
+  const end = new Date(start.getTime() + 2*60*60*1000);
+  const pick = (m.analysis && m.analysis.suggested_pick) ? m.analysis.suggested_pick : '';
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//pronostics-app//FR',
+    'BEGIN:VEVENT',
+    `UID:${matchKey(m)}@pronostics-app`,
+    `DTSTAMP:${toICSDate(new Date())}`,
+    `DTSTART:${toICSDate(start)}`,
+    `DTEND:${toICSDate(end)}`,
+    `SUMMARY:${m.homeTeam} vs ${m.awayTeam} (${m.competition})`,
+    `DESCRIPTION:${pick.replace(/,/g,'\\,')}`,
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([ics], {type: 'text/calendar'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${m.homeTeam}-vs-${m.awayTeam}.ics`.replace(/\s+/g,'_');
+  a.click();
+  URL.revokeObjectURL(url);
+}
+window.downloadICS = downloadICS;
+
+function renderAnalysis(m){
+  const a = m.analysis;
+  const upcoming = m.status === 'SCHEDULED' || m.status === 'TIMED';
+  if(!upcoming) return '';
+
+  const icsBtn = `<button class="ics-btn" onclick='downloadICS(${JSON.stringify(m).replace(/'/g,"&#39;")})'>📅 Ajouter à mon calendrier</button>`;
+
+  const ai = aiAnalyses[matchKey(m)];
+  if(ai && ai.analysis){
+    return `<div class="analysis-box ai">
+      <div class="conf">🤖 Analyse IA · Confiance : ${ai.confidence || '—'}</div>
+      <div class="pick">${ai.pick || ''}</div>
+      <p style="margin:8px 0 0; font-size:12px; color:#cdd6cc; line-height:1.5;">${ai.analysis}</p>
+      ${a && a.poisson ? renderPoisson(a.poisson, m) : ''}
+    </div>${icsBtn}`;
+  }
+
+  if(!a){
+    return `<div class="no-analysis">Analyse statistique non calculée pour ce match (hors fenêtre d'analyse ou données insuffisantes).</div>${icsBtn}`;
+  }
+  const h2h = a.head_to_head;
+  const fatigueLine = (a.fatigue_home || a.fatigue_away) ? `<div class="stat-line"><span>Repos avant match</span><b>${m.homeTeam.split(' ')[0]} : ${a.rest_days_home ?? 'n/d'}j${a.fatigue_home ? ' ('+a.fatigue_home+')' : ''} · ${m.awayTeam.split(' ')[0]} : ${a.rest_days_away ?? 'n/d'}j${a.fatigue_away ? ' ('+a.fatigue_away+')' : ''}</b></div>` : '';
+  const letdownNames = [a.letdown_home ? m.homeTeam : null, a.letdown_away ? m.awayTeam : null].filter(Boolean);
+  const letdownLine = letdownNames.length ? `<div class="stat-line"><span>Effet de relâchement possible</span><b>${letdownNames.join(', ')} sort d'une victoire à l'extérieur</b></div>` : '';
+  const homeVenue = venueSummary(a.home_venue_record, 'à domicile');
+  const awayVenue = venueSummary(a.away_venue_record, 'à l\'extérieur');
+  const venueLine = (homeVenue || awayVenue) ? `<div class="stat-line"><span>Invincibilité</span><b>${[homeVenue ? m.homeTeam.split(' ')[0]+' : '+homeVenue : null, awayVenue ? m.awayTeam.split(' ')[0]+' : '+awayVenue : null].filter(Boolean).join(' · ')}</b></div>` : '';
+  const terrainLabel = a.true_home_advantage === 'home' ? `${m.homeTeam} joue vraiment à domicile`
+    : a.true_home_advantage === 'away' ? `${m.awayTeam} joue vraiment à domicile`
+    : 'Terrain neutre pour les deux équipes';
+  const terrainLine = `<div class="stat-line"><span>Terrain</span><b>${terrainLabel}</b></div>`;
+  const stakesLine = (a.stakes_home || a.stakes_away) ? `<div class="stat-line"><span>Enjeu</span><b>${m.homeTeam.split(' ')[0]} : ${a.stakes_home || 'n/d'} · ${m.awayTeam.split(' ')[0]} : ${a.stakes_away || 'n/d'}</b></div>` : '';
+  const surpriseLine = a.surprise_risk ? `<div class="stat-line" style="color:var(--red);"><span>⚠ Risque de surprise</span><b>Le favori statistique cumule fatigue et/ou risque de relâchement</b></div>` : '';
+  return `<div class="analysis-box">
+    <div class="conf">Confiance : ${a.confidence}</div>
+    <div class="pick">${a.suggested_pick}</div>
+    <div class="stat-line"><span>Forme ${m.homeTeam}</span><b>${formSummary(a.home_form) || 'n/d'}</b></div>
+    <div class="stat-line"><span>Forme ${m.awayTeam}</span><b>${formSummary(a.away_form) || 'n/d'}</b></div>
+    ${renderStyleTags(a, m)}
+    ${h2h && h2h.total_matches > 0 ? `<div class="stat-line"><span>Confrontations directes</span><b>${h2h.home_wins}V / ${h2h.draws}N / ${h2h.away_wins}V (${h2h.total_matches} matchs)</b></div>` : ''}
+    ${terrainLine}
+    ${venueLine}
+    ${stakesLine}
+    ${fatigueLine}
+    ${letdownLine}
+    ${surpriseLine}
+    ${renderPoisson(a.poisson, m)}
+  </div>${icsBtn}`;
+}
+
+function render(){
+  let filtered = activeFilter === 'ALL' ? allMatches : allMatches.filter(m => m.competition === activeFilter);
+  if(searchTerm.trim()){
+    const term = searchTerm.trim().toLowerCase();
+    filtered = filtered.filter(m =>
+      m.homeTeam.toLowerCase().includes(term) || m.awayTeam.toLowerCase().includes(term)
+    );
+  }
+  if(filtered.length === 0){
+    document.getElementById('main').innerHTML = '<div class="empty">Aucun match dans cette sélection.</div>';
+    return;
+  }
+  const byDay = {};
+  filtered.forEach(m => {
+    const day = new Date(m.utcDate).toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
+    (byDay[day] = byDay[day] || []).push(m);
+  });
+
+  document.getElementById('main').innerHTML = Object.entries(byDay).map(([day, matches]) => `
+    <div class="day-group">
+      <div class="day-title">${day}</div>
+      <div class="grid">
+        ${matches.map(m => {
+          const st = statusInfo(m.status);
+          const time = new Date(m.utcDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+          const hasScore = m.status === 'FINISHED' || m.status === 'IN_PLAY' || m.status === 'PAUSED';
+          return `<div class="card">
+            <span class="comp">${m.competition}</span>
+            <span class="time">${time}</span>
+            <div class="teams">
+              <div class="team">${m.homeCrest ? `<img src="${m.homeCrest}" alt="">` : ''}<span>${m.homeTeam}</span></div>
+              <div class="score">${hasScore ? (m.homeScore ?? 0) + ' - ' + (m.awayScore ?? 0) : 'vs'}</div>
+              <div class="team" style="justify-content:flex-end; text-align:right;"><span>${m.awayTeam}</span>${m.awayCrest ? `<img src="${m.awayCrest}" alt="">` : ''}</div>
+            </div>
+            <span class="status-pill ${st.cls}">${st.label}</span>
+            ${renderAnalysis(m)}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('teamSearch').addEventListener('input', (e) => {
+  searchTerm = e.target.value;
+  render();
+});
+
+load();
+</script>
+
+</body>
+</html>
